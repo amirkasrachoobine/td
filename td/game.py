@@ -261,6 +261,7 @@ class Game:
         self.spawn_timer = 0.0
         self.kills = 0
         self.over = False
+        self.victory = False
         self.message = "Place towers, then press SPACE to send wave 1."
 
     # --- queries --------------------------------------------------------
@@ -276,7 +277,10 @@ class Game:
     # --- player actions -------------------------------------------------
     def build(self, kind, col, row):
         cost = C.TOWERS[kind]["levels"][0]["cost"]
-        if self.over or not self.can_build(col, row):
+        if self.over:
+            return False
+        if not self.can_build(col, row):
+            self.message = "Choose an empty grass tile away from roads, water and scenery."
             return False
         if self.gold < cost:
             self.message = f"Not enough gold for {C.TOWERS[kind]['name']} ({cost})."
@@ -304,7 +308,7 @@ class Game:
         del self.towers[(tower.col, tower.row)]
 
     def start_wave(self):
-        if self.over or self.wave_active:
+        if self.over or self.wave_active or self.wave >= C.TOTAL_WAVES:
             return False
         self.wave += 1
         self.spawn_queue = list(C.wave_plan(self.wave))
@@ -358,4 +362,8 @@ class Game:
         elif had_enemies and not self.wave_active:
             bonus = C.WAVE_BONUS + 2 * self.wave
             self.gold += bonus
-            self.message = f"Wave {self.wave} cleared! +{bonus} gold. SPACE for the next."
+            if self.wave == C.TOTAL_WAVES:
+                self.over = self.victory = True
+                self.message = "Campaign complete. R: play again, M: menu."
+            else:
+                self.message = f"Wave {self.wave} cleared! +{bonus} gold. SPACE for the next."

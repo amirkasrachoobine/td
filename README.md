@@ -60,7 +60,7 @@ Enemies walk the dirt path from left to right. Each one that gets through costs 
 | `F` | toggle 2x speed |
 | `P` | pause |
 | `M` | back to the menu |
-| `R` | play the same map again after game over |
+| `R` or Play again | replay the same map and difficulty after victory or defeat |
 
 **Towers:** Arrow (cheap, fast, single target), Cannon (slow, splash damage),
 Frost (light damage, slows), Fire (sets enemies burning), Arcane (long range, heavy
@@ -70,18 +70,20 @@ look changes with its level.
 **Enemies** come in four factions, one per wave in turn: Humans, Elves, Goblins,
 Skeletons. Every faction has six units: Soldier (basic), Spearman (sturdier, from
 wave 2), Cavalry (fast, from wave 2), Archer (quick and fragile, from wave 3), Elite
-(slow and tough, from wave 4) and Champion (a boss every fifth wave).
-HP grows every wave; clearing a wave pays a gold bonus.
+(slow and tough, from wave 4) and Champion (a boss on waves 5 and 10).
+Survive all ten waves to win. Clearing a wave pays a gold bonus.
 
 ## Code
 
-- `td/config.py` — map path, tower/enemy stats, wave composition. Balance lives here.
+- `td/data/campaign.json` — version 1 shared maps, difficulties, tower and enemy stats, economy, and ten waves.
+- `td/level.py` — campaign loader and validation.
+- `td/config.py` — display constants and access to the loaded campaign.
 - `td/game.py` — game rules and simulation, no pygame (testable headless).
 - `td/main.py` — pygame drawing and input.
 - `td/mapart.py` — paints the map: pixel grass, the dirt road along the enemy path, and
   the river and bridges, and the scenery. Each map's path, river and scenery are in
-  `MAPS` in `config.py` (towers can't be built on the path, scenery or water);
-  difficulties are in `DIFFICULTIES`.
+  `maps` in `td/data/campaign.json` (towers can't be built on the path, scenery or water);
+  difficulties are in `difficulties` in the same file.
 - `assets/enemies/` — `<faction>_<unit>.png`, all facing right; the game mirrors them
   when an enemy walks left.
 - `assets/fx/` — bullet sprites (`<tower>_shot_0.png`, flying left in the art; the game
@@ -89,5 +91,25 @@ HP grows every wave; clearing a wave pays a gold bonus.
   flames on burning enemies (`burn_<frame>.png`). Sizes are set at the top of `td/main.py`.
 - `assets/map/` — scenery sprites (houses, trees, well, fences, stalls, …).
 - `assets/towers/` — tower sprites, one PNG per look (transparent background).
-  `config.py` says which sprite each tower level uses.
+  The campaign data specifies which sprite each tower level uses.
 - `tests/` — `python3 -m unittest discover tests`
+
+## Shared campaign format
+
+Map coordinates are zero-based `[column, row]` tiles. Follow horizontal or
+vertical segments, with the path endpoints one tile beyond the board. Scenery
+entries specify a sprite and its tile footprint. Each wave names a faction,
+sets its HP multiplier, and lists spawn groups in order. Each group consists
+of an enemy ID, a count, and a delay in seconds after each spawn. The first
+enemy spawns immediately.
+
+Run `python3 run.py --validate` to check the bundled JSON without pygame.
+
+## Roadmap
+
+1. Placement feedback and next-wave previews for the existing six towers and three maps.
+2. Ten-wave campaign with the four existing factions, victory, defeat, and replay.
+3. Versioned JSON for maps, terrain, difficulty, towers, enemies, and waves.
+4. Java map and campaign editor using the shared JSON format.
+5. C++ simulator matching the Python game rules for balance tests.
+6. Playtest, balance, and package a release.

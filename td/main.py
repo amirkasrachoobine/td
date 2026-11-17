@@ -146,11 +146,16 @@ class App:
             b = Button((bx, by, half, 54), spec["name"], ("pick", kind),
                        f"[{spec['key']}]  {cost}g")
             b.icon = kind
-            b.enabled = g.gold >= cost and not g.over
+            b.enabled = not g.over
             b.active = self.build_kind == kind
             out.append(b)
         y += (len(C.TOWERS) + 1) // 2 * 58 + 4
-        wave = Button((x0, y, w, 34), "[Space] Send next wave", ("wave",))
+        label = "[Space] Send next wave"
+        if g.wave < C.TOTAL_WAVES and not g.over:
+            next_wave = g.wave + 1
+            faction = C.FACTION_NAMES[C.wave_faction(next_wave)]
+            label = f"[Space] {next_wave}: {faction} ({len(C.wave_plan(next_wave))})"
+        wave = Button((x0, y, w, 34), label, ("wave",))
         wave.enabled = not g.wave_active and not g.over
         out.append(wave)
         y += 40
@@ -200,6 +205,14 @@ class App:
             g.sell(self.selected)
             self.selected = None
 
+    def replay_button(self):
+        x, y = C.COLS * C.TILE // 2, C.HEIGHT // 2
+        return Button((x - 90, y + 42, 180, 36), "[R] Play again", ("replay",))
+
+    def replay(self):
+        self.menu_map, self.menu_diff = self.game.map_id, self.game.difficulty
+        self.start_game()
+
     def menu_buttons(self):
         out = []
         gap = 30
@@ -223,6 +236,10 @@ class App:
             for b in self.menu_buttons():
                 if button == 1 and b.rect.collidepoint(pos):
                     self.do(b.action)
+            return
+        if self.game.over and self.replay_button().rect.collidepoint(pos):
+            if button == 1:
+                self.replay()
             return
         if button == 3:                       # right click cancels
             self.build_kind = self.selected = None
@@ -279,8 +296,7 @@ class App:
         elif key == pygame.K_m:
             self.mode = "menu"
         elif key == pygame.K_r and g.over:
-            self.menu_map, self.menu_diff = g.map_id, g.difficulty
-            self.start_game()
+            self.replay()
 
     # --- drawing --------------------------------------------------------
     def text(self, s, pos, font=None, color=TEXT, center=False):
@@ -414,10 +430,14 @@ class App:
             scr.blit(shade, (0, 0))
             mid = (C.COLS * C.TILE // 2, C.ROWS * C.TILE // 2)
             if g.over:
-                self.text("GAME OVER", (mid[0], mid[1] - 24), self.big, RED, center=True)
+                title, color = ("VICTORY", GOLD) if g.victory else ("DEFEAT", RED)
+                self.text(title, (mid[0], mid[1] - 24), self.big, color, center=True)
                 self.text(f"You reached wave {g.wave} with {g.kills} kills.",
                           (mid[0], mid[1] + 18), center=True)
-                self.text("R: play again    M: menu", (mid[0], mid[1] + 44), center=True)
+                replay = self.replay_button()
+                pygame.draw.rect(scr, PANEL, replay.rect, border_radius=6)
+                self.text(replay.label, replay.rect.center, center=True)
+                self.text("[M] Menu", (mid[0], mid[1] + 94), center=True)
             else:
                 self.text("PAUSED", mid, self.big, center=True)
 
@@ -446,7 +466,7 @@ class App:
         x = x0 + 14
         self.text(f"Gold  {g.gold}", (x, 12), color=GOLD)
         self.text(f"Lives {g.lives}", (x + 130, 12), color=RED if g.lives <= 5 else TEXT)
-        self.text(f"Wave  {g.wave}", (x, 36))
+        self.text(f"Wave  {g.wave}/{C.TOTAL_WAVES}", (x, 36))
         self.text(f"Kills {g.kills}", (x + 130, 36))
         where = f"{C.MAPS[g.map_id]['name']} · {C.DIFFICULTIES[g.difficulty]['name']}"
         self.text(where, (x, 60), self.small, MUTED)
@@ -496,7 +516,12 @@ class App:
             self.text(extra, (x, y + 42), self.small, MUTED)
 
         # message line and help at the bottom
-        self.wrap(g.message, (x, C.HEIGHT - 98), C.SIDEBAR_W - 28, TEXT)
+        message = g.message
+        if self.build_kind and not g.over:
+            cost = C.TOWERS[self.build_kind]["levels"][0]["cost"]
+            if cost > g.gold:
+                message = f"Need {cost} gold to build. You have {g.gold}."
+        self.wrap(message, (x, C.HEIGHT - 98), C.SIDEBAR_W - 28, TEXT)
         self.text("Click: place or select a tower", (x, C.HEIGHT - 58), self.small, MUTED)
         self.text("Shift+click: place several", (x, C.HEIGHT - 40), self.small, MUTED)
         self.text("Right-click / Esc: cancel", (x, C.HEIGHT - 22), self.small, MUTED)
